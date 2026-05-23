@@ -75,7 +75,10 @@ class ReplicaControlPanel(discord.ui.View):
 
     @discord.ui.button(label="Slot 1", style=discord.ButtonStyle.primary, row=0)
     async def slot1(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("✅ Slot 1 Selected\nUse **Setup** button to configure it.", ephemeral=True)
+        if "1" in slots_data and slots_data["1"].get("token"):
+            await interaction.response.send_message("✅ **Slot 1 is Configured**\nYou can edit it using **Setup** button.", ephemeral=True)
+        else:
+            await interaction.response.send_message("⚪ Slot 1 is Empty\nUse **Setup** button to configure it.", ephemeral=True)
 
     @discord.ui.button(label="+ Add Slot", style=discord.ButtonStyle.primary, emoji="➕", row=0)
     async def add_slot(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -83,12 +86,15 @@ class ReplicaControlPanel(discord.ui.View):
 
     @discord.ui.button(label="Delete Slot", style=discord.ButtonStyle.danger, emoji="🗑️", row=0)
     async def delete_slot(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("🗑️ Delete Slot coming soon...", ephemeral=True)
+        await interaction.response.send_modal(DeleteModal())
 
     @discord.ui.button(label="Start", style=discord.ButtonStyle.success, emoji="🚀", row=1)
     async def start(self, interaction: discord.Interaction, button: discord.ui.Button):
         if "1" not in slots_data or not slots_data["1"].get("token"):
-            return await interaction.response.send_message("❌ Setup Slot 1 first!", ephemeral=True)
+            return await interaction.response.send_message("❌ Please Setup Slot 1 first using Setup button!", ephemeral=True)
+        
+        if "1" in active_slots:
+            return await interaction.response.send_message("⚠️ Slot 1 is already running!", ephemeral=True)
         
         data = slots_data["1"]
         slot = AdSlot("1", data["token"], data["channels"], data["delay"], data["message"])
@@ -101,7 +107,7 @@ class ReplicaControlPanel(discord.ui.View):
             active_slots["1"].stop()
             await interaction.response.send_message("⛔ Slot 1 Stopped!", ephemeral=True)
         else:
-            await interaction.response.send_message("Not running.", ephemeral=True)
+            await interaction.response.send_message("❌ Slot 1 is not running.", ephemeral=True)
 
     @discord.ui.button(label="Setup", style=discord.ButtonStyle.gray, emoji="⚙️", row=1)
     async def setup(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -112,31 +118,11 @@ class SetupModal(discord.ui.Modal, title="Setup Slot 1"):
         super().__init__()
         data = slots_data.get("1", {})
         
-        self.token = discord.ui.TextInput(
-            label="Alt Token *", 
-            placeholder="Paste your user token",
-            default=data.get("token", ""),
-            required=True
-        )
-        self.channels = discord.ui.TextInput(
-            label="Target Channels *", 
-            placeholder="1471484118930952399, 1234567890",
-            default=", ".join(data.get("channels", [])),
-            required=True
-        )
-        self.delay = discord.ui.TextInput(
-            label="Delay (Sec) *", 
-            placeholder="180",
-            default=str(data.get("delay", 10)),
-            required=True
-        )
-        self.message = discord.ui.TextInput(
-            label="Ad Message *", 
-            style=discord.TextStyle.paragraph,
-            placeholder="nigga gigga",
-            default=data.get("message", ""),
-            required=True
-        )
+        self.token = discord.ui.TextInput(label="Alt Token *", placeholder="Paste your user token", default=data.get("token", ""), required=True)
+        self.channels = discord.ui.TextInput(label="Target Channels *", placeholder="1471484118930952399, 1234567890", default=", ".join(data.get("channels", [])), required=True)
+        self.delay = discord.ui.TextInput(label="Delay (Sec) *", placeholder="180", default=str(data.get("delay", 10)), required=True)
+        self.message = discord.ui.TextInput(label="Ad Message *", style=discord.TextStyle.paragraph, placeholder="nigga gigga", default=data.get("message", ""), required=True)
+        
         self.add_item(self.token)
         self.add_item(self.channels)
         self.add_item(self.delay)
@@ -157,7 +143,21 @@ class SetupModal(discord.ui.Modal, title="Setup Slot 1"):
             "message": self.message.value.strip()
         }
         save_slots()
-        await interaction.response.send_message("✅ **Slot 1 Saved Successfully!**\nNow click **Start** button.", ephemeral=True)
+        await interaction.response.send_message("✅ **Slot 1 Saved Successfully!**\nYou can now click **Start**.", ephemeral=True)
+
+class DeleteModal(discord.ui.Modal, title="Delete Slot"):
+    slot_id = discord.ui.TextInput(label="Slot Number to Delete (1-8)", placeholder="1", required=True)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        sid = self.slot_id.value.strip()
+        if sid in slots_data:
+            if sid in active_slots:
+                active_slots[sid].stop()
+            del slots_data[sid]
+            save_slots()
+            await interaction.response.send_message(f"🗑️ Slot {sid} Deleted!", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Slot not found!", ephemeral=True)
 
 @bot.tree.command(name="panel", description="Open Replica's Auto ADV Control Panel")
 async def panel(interaction: discord.Interaction):
