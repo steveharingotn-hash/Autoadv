@@ -34,7 +34,7 @@ class AdSlot:
         try:
             await self.client.start(self.token)
         except Exception as e:
-            print(f"[Slot {self.slot_id}] Login Error: {e}")
+            print(f"[Slot {self.slot_id}] ❌ Login Error: {e}")
 
     async def advertise(self):
         while True:
@@ -43,6 +43,7 @@ class AdSlot:
                     channel = self.client.get_channel(int(cid))
                     if channel:
                         await channel.send(self.message)
+                        print(f"[Slot {self.slot_id}] ✅ Sent to {cid}")
                 except:
                     pass
             await asyncio.sleep(self.delay)
@@ -75,15 +76,7 @@ class ReplicaControlPanel(discord.ui.View):
 
     @discord.ui.button(label="Slot 1", style=discord.ButtonStyle.primary, row=0)
     async def slot1(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Use **Setup** to configure Slot 1", ephemeral=True)
-
-    @discord.ui.button(label="+ Add Slot", style=discord.ButtonStyle.primary, emoji="➕", row=0)
-    async def add_slot(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Coming soon...", ephemeral=True)
-
-    @discord.ui.button(label="Delete Slot", style=discord.ButtonStyle.danger, emoji="🗑️", row=0)
-    async def delete_slot(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Coming soon...", ephemeral=True)
+        await interaction.response.send_message("Use **Setup** button to configure Slot 1", ephemeral=True)
 
     @discord.ui.button(label="Start", style=discord.ButtonStyle.success, emoji="🚀", row=1)
     async def start(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -128,7 +121,7 @@ class SetupModal(discord.ui.Modal, title="Setup Slot 1"):
             "message": self.message.value.strip()
         }
         save_slots()
-        await interaction.response.send_message("✅ Slot 1 Saved! Click **Start**.", ephemeral=True)
+        await interaction.response.send_message("✅ Slot 1 Saved!\nClick **Start** to begin advertising.", ephemeral=True)
 
 @bot.tree.command(name="panel", description="Open Replica's Auto ADV Control Panel")
 async def panel(interaction: discord.Interaction):
