@@ -24,32 +24,31 @@ class AdSlot:
 
     async def start(self):
         active_slots[self.slot_id] = self
-        self.client = discord.Client(intents=discord.Intents.all())  # Better intents
+        self.client = discord.Client(intents=discord.Intents.all())
 
         @self.client.event
         async def on_ready():
-            print(f"[Slot {self.slot_id}] ✅ SUCCESSFULLY LOGGED IN AS: {self.client.user}")
-            print(f"[Slot {self.slot_id}] Advertising to {len(self.channels)} channels | Delay: {self.delay}s")
+            print(f"[Slot {self.slot_id}] ✅ LOGGED IN AS: {self.client.user}")
+            print(f"[Slot {self.slot_id}] 🚀 Starting Advertising | Delay: {self.delay}s")
             self.task = asyncio.create_task(self.advertise())
 
         try:
-            await self.client.start(self.token, bot=False)  # Important: bot=False for user token
+            await self.client.start(self.token, bot=False)   # ← Important for User Token
         except Exception as e:
             print(f"[Slot {self.slot_id}] ❌ LOGIN FAILED: {e}")
 
     async def advertise(self):
-        print(f"[Slot {self.slot_id}] 🚀 Advertising loop started")
         while True:
             for cid in self.channels:
                 try:
                     channel = self.client.get_channel(int(cid))
                     if channel:
                         await channel.send(self.message)
-                        print(f"[Slot {self.slot_id}] ✅ Sent to channel {cid}")
+                        print(f"[Slot {self.slot_id}] ✅ Sent to {cid}")
                     else:
                         print(f"[Slot {self.slot_id}] ⚠️ Channel {cid} not found")
                 except Exception as e:
-                    print(f"[Slot {self.slot_id}] Error sending to {cid}: {e}")
+                    print(f"[Slot {self.slot_id}] Error in {cid}: {e}")
             await asyncio.sleep(self.delay)
 
     def stop(self):
@@ -58,7 +57,6 @@ class AdSlot:
         if self.client:
             asyncio.create_task(self.client.close())
         active_slots.pop(self.slot_id, None)
-        print(f"[Slot {self.slot_id}] Stopped")
 
 def load_slots():
     global slots_data
@@ -75,44 +73,42 @@ def save_slots():
 
 load_slots()
 
-# ====================== PANEL ======================
 class ReplicaControlPanel(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
     @discord.ui.button(label="Slot 1", style=discord.ButtonStyle.primary, row=0)
     async def slot1(self, interaction: discord.Interaction, button: discord.ui.Button):
-        status = "✅ Configured" if "1" in slots_data and slots_data["1"].get("token") else "⚪ Empty"
-        await interaction.response.send_message(f"**Slot 1 Status:** {status}\nUse **Setup** to configure.", ephemeral=True)
+        status = "✅ Configured" if slots_data.get("1", {}).get("token") else "⚪ Empty"
+        await interaction.response.send_message(f"**Slot 1:** {status}\nUse Setup to configure.", ephemeral=True)
 
     @discord.ui.button(label="+ Add Slot", style=discord.ButtonStyle.primary, emoji="➕", row=0)
     async def add_slot(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("➕ Multiple slots coming soon...", ephemeral=True)
+        await interaction.response.send_message("Multiple slots coming soon...", ephemeral=True)
 
     @discord.ui.button(label="Delete Slot", style=discord.ButtonStyle.danger, emoji="🗑️", row=0)
     async def delete_slot(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("🗑️ Delete coming soon...", ephemeral=True)
+        await interaction.response.send_message("Coming soon...", ephemeral=True)
 
     @discord.ui.button(label="Start", style=discord.ButtonStyle.success, emoji="🚀", row=1)
     async def start(self, interaction: discord.Interaction, button: discord.ui.Button):
         if "1" not in slots_data or not slots_data["1"].get("token"):
             return await interaction.response.send_message("❌ Setup Slot 1 first!", ephemeral=True)
-        
         if "1" in active_slots:
             return await interaction.response.send_message("⚠️ Already Running!", ephemeral=True)
-        
+
         data = slots_data["1"]
         slot = AdSlot("1", data["token"], data["channels"], data["delay"], data["message"])
-        await interaction.response.send_message("🚀 Starting Slot 1...", ephemeral=True)
+        await interaction.response.send_message("🚀 Starting Advertising...", ephemeral=True)
         asyncio.create_task(slot.start())
 
     @discord.ui.button(label="Stop", style=discord.ButtonStyle.danger, emoji="⭕", row=1)
     async def stop(self, interaction: discord.Interaction, button: discord.ui.Button):
         if "1" in active_slots:
             active_slots["1"].stop()
-            await interaction.response.send_message("⛔ Slot 1 Stopped", ephemeral=True)
+            await interaction.response.send_message("⛔ Stopped!", ephemeral=True)
         else:
-            await interaction.response.send_message("Not running", ephemeral=True)
+            await interaction.response.send_message("Not running.", ephemeral=True)
 
     @discord.ui.button(label="Setup", style=discord.ButtonStyle.gray, emoji="⚙️", row=1)
     async def setup(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -122,7 +118,7 @@ class SetupModal(discord.ui.Modal, title="Setup Slot 1"):
     def __init__(self):
         super().__init__()
         data = slots_data.get("1", {})
-        self.token = discord.ui.TextInput(label="Alt Token *", placeholder="Paste full user token", default=data.get("token", ""), required=True)
+        self.token = discord.ui.TextInput(label="Alt Token *", placeholder="Paste user token", default=data.get("token", ""), required=True)
         self.channels = discord.ui.TextInput(label="Target Channels *", placeholder="1471484118930952399,1234567890", default=", ".join(data.get("channels", [])), required=True)
         self.delay = discord.ui.TextInput(label="Delay (Sec) *", placeholder="180", default=str(data.get("delay", 10)), required=True)
         self.message = discord.ui.TextInput(label="Ad Message *", style=discord.TextStyle.paragraph, placeholder="nigga gigga", default=data.get("message", ""), required=True)
@@ -135,10 +131,10 @@ class SetupModal(discord.ui.Modal, title="Setup Slot 1"):
     async def on_submit(self, interaction: discord.Interaction):
         try:
             delay = int(self.delay.value)
-            if delay < 5: 
-                return await interaction.response.send_message("❌ Delay minimum 5 seconds!", ephemeral=True)
+            if delay < 5:
+                return await interaction.response.send_message("❌ Minimum delay 5 seconds!", ephemeral=True)
         except:
-            return await interaction.response.send_message("❌ Delay must be number!", ephemeral=True)
+            return await interaction.response.send_message("❌ Delay must be a number!", ephemeral=True)
 
         slots_data["1"] = {
             "token": self.token.value.strip(),
@@ -147,16 +143,16 @@ class SetupModal(discord.ui.Modal, title="Setup Slot 1"):
             "message": self.message.value.strip()
         }
         save_slots()
-        await interaction.response.send_message("✅ Slot 1 Saved! Click **Start** to begin.", ephemeral=True)
+        await interaction.response.send_message("✅ Slot 1 Saved! Now click **Start**.", ephemeral=True)
 
-@bot.tree.command(name="panel", description="Open Control Panel")
+@bot.tree.command(name="panel", description="Open Replica Control Panel")
 async def panel(interaction: discord.Interaction):
     embed = discord.Embed(title="🔧 REPLICA CONTROL PANEL", description="Replica's Auto ADV", color=0x7289DA)
     await interaction.response.send_message(embed=embed, view=ReplicaControlPanel())
 
 @bot.event
 async def on_ready():
-    print(f"✅ Control Bot Online: {bot.user}")
+    print(f"✅ Control Panel Bot Online")
     await bot.tree.sync()
 
 if __name__ == "__main__":
@@ -164,4 +160,4 @@ if __name__ == "__main__":
     if token:
         bot.run(token)
     else:
-        print("❌ DISCORD_TOKEN not found!")
+        print("❌ DISCORD_TOKEN not set!")
