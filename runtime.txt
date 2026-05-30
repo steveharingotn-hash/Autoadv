@@ -1,1 +1,9 @@
-python-3.11
+{
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "python main.py",
+    "restartPolicy": "ON_FAILURE"
+  }
+}
