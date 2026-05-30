@@ -3,7 +3,6 @@ import asyncio
 import json
 import os
 from datetime import datetime
-from discord.ui import View, Button
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -12,17 +11,15 @@ bot = discord.Client(intents=intents)
 DATA_FILE = "slots.json"
 
 def load_slots():
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, 'r') as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
+    try:
+        with open(DATA_FILE, 'r') as f:
+            return json.load(f)
+    except:
+        return {}
 
-def save_slots(slots):
+def save_slots(data):
     with open(DATA_FILE, 'w') as f:
-        json.dump(slots, f, indent=4)
+        json.dump(data, f, indent=4)
 
 slots = load_slots()
 
@@ -30,57 +27,27 @@ async def send_ad(slot_id):
     slot = slots.get(str(slot_id))
     if not slot or not slot.get("running"):
         return
-    try:
-        for cid in slot.get("channels", []):
+    for cid in slot.get("channels", []):
+        try:
             channel = bot.get_channel(int(cid))
             if channel:
                 await channel.send(slot["message"])
-                print(f"[Slot {slot_id}] ✅ Sent to {cid}")
-            await asyncio.sleep(1.2)
-    except:
-        pass
+                print(f"[Slot {slot_id}] Sent to {cid}")
+            await asyncio.sleep(1)
+        except:
+            pass
 
 async def slot_loop(slot_id):
-    while True:
-        slot = slots.get(str(slot_id))
-        if not slot or not slot.get("running"):
-            break
+    while slots.get(str(slot_id), {}).get("running"):
         await send_ad(slot_id)
-        await asyncio.sleep(slot.get("delay", 10))
-
-class ControlPanel(View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    @discord.ui.button(label="Add Slot", style=discord.ButtonStyle.green)
-    async def add_slot(self, interaction, button):
-        new_id = str(max([int(k) for k in slots.keys()] or [0]) + 1)
-        slots[new_id] = {"token": "", "channels": [], "delay": 10, "message": "nigga gigga", "running": False}
-        save_slots(slots)
-        await interaction.response.send_message(f"➕ Slot {new_id} Created!", ephemeral=True)
-
-    @discord.ui.button(label="Setup", style=discord.ButtonStyle.blurple)
-    async def setup_btn(self, interaction, button):
-        await interaction.response.send_message("**Setup Format:**\n`/setup 1 | TOKEN | 1471484118930952399 | 10 | nigga gigga`", ephemeral=True)
-
-    @discord.ui.button(label="Start", style=discord.ButtonStyle.green)
-    async def start_btn(self, interaction, button):
-        await interaction.response.send_message("`/start 1`", ephemeral=True)
-
-    @discord.ui.button(label="Stop", style=discord.ButtonStyle.red)
-    async def stop_btn(self, interaction, button):
-        await interaction.response.send_message("`/stop 1`", ephemeral=True)
-
-    @discord.ui.button(label="Delete", style=discord.ButtonStyle.gray)
-    async def delete_btn(self, interaction, button):
-        await interaction.response.send_message("`/deleteslot 1`", ephemeral=True)
+        await asyncio.sleep(slots[str(slot_id)]["delay"])
 
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
-    for sid in list(slots.keys()):
+    print(f"✅ {bot.user} is ready!")
+    for sid in slots:
         if slots[sid].get("running"):
-            asyncio.create_task(slot_loop(int(sid)))
+            asyncio.create_task(slot_loop(sid))
 
 @bot.event
 async def on_message(message):
@@ -91,76 +58,71 @@ async def on_message(message):
     if not content.startswith('/'):
         return
 
-    cmd = content.split()[0].lower()
+    parts = content.split()
+    cmd = parts[0].lower()
 
+    # /panel
     if cmd == "/panel":
-        embed = discord.Embed(title="🔧 REPLICA'S AUTO ADV", color=0x7289da)
-        embed.description = "Control Panel"
+        embed = discord.Embed(title="🔧 REPLICA AUTO ADV PANEL", color=0x00ff00)
         for sid, data in slots.items():
-            status = "🟢 Running" if data.get("running") else "🔴 Stopped"
-            embed.add_field(name=f"Slot {sid}", value=f"Delay: {data.get('delay')}s\nStatus: {status}", inline=True)
-        await message.channel.send(embed=embed, view=ControlPanel())
+            status = "🟢 RUNNING" if data.get("running") else "🔴 STOPPED"
+            embed.add_field(name=f"Slot {sid}", value=f"Delay: {data.get('delay')}s\nStatus: {status}", inline=False)
+        await message.channel.send(embed=embed)
 
+    # /addslot
+    elif cmd == "/addslot":
+        new_id = str(max([int(k) for k in slots.keys()] or [0]) + 1)
+        slots[new_id] = {"channels": [], "delay": 10, "message": "nigga gigga", "running": False}
+        save_slots(slots)
+        await message.channel.send(f"✅ Slot {new_id} Created. Now setup it.")
+
+    # /setup
     elif cmd == "/setup":
         try:
-            parts = [p.strip() for p in content[7:].split('|')]
-            if len(parts) < 5:
-                return await message.channel.send("❌ Wrong format!\n`/setup slot_id | token | channel_ids | delay | message`")
-            slot_id, token, ch_str, delay_str, msg = parts
-            channels = [int(x.strip()) for x in ch_str.split(',') if x.strip()]
-            delay = int(delay_str)
-            
-            slots[slot_id] = {
-                "token": token,
-                "channels": channels,
-                "delay": delay,
-                "message": msg,
-                "running": False
-            }
+            # Format: /setup 1 TOKEN 1471484118930952399 10 nigga gigga
+            slot_id = parts[1]
+            token = parts[2]
+            channels = [int(x) for x in parts[3].split(',')]
+            delay = int(parts[4])
+            message = " ".join(parts[5:])
+            slots[slot_id] = {"channels": channels, "delay": delay, "message": message, "running": False}
             save_slots(slots)
             await message.channel.send(f"✅ Slot {slot_id} Saved!")
-        except Exception as e:
-            await message.channel.send(f"❌ Error: {e}")
+        except:
+            await message.channel.send("❌ Format: `/setup <slot> <token> <channel_ids> <delay> <message>`")
 
+    # /start
     elif cmd == "/start":
-        slot_id = content[7:].strip()
-        slot = slots.get(slot_id)
-        if slot and not slot.get("running"):
-            slot["running"] = True
+        slot_id = parts[1]
+        if slot_id in slots:
+            slots[slot_id]["running"] = True
             save_slots(slots)
-            asyncio.create_task(slot_loop(int(slot_id)))
-            await message.channel.send(f"🟢 Slot {slot_id} Started!")
+            asyncio.create_task(slot_loop(slot_id))
+            await message.channel.send(f"🟢 Slot {slot_id} Started Advertising!")
         else:
-            await message.channel.send("❌ Slot not found or already running")
+            await message.channel.send("❌ Slot not found")
 
+    # /stop
     elif cmd == "/stop":
-        slot_id = content[6:].strip()
-        slot = slots.get(slot_id)
-        if slot and slot.get("running"):
-            slot["running"] = False
+        slot_id = parts[1]
+        if slot_id in slots:
+            slots[slot_id]["running"] = False
             save_slots(slots)
             await message.channel.send(f"🔴 Slot {slot_id} Stopped!")
-        else:
-            await message.channel.send("❌ Not running")
 
+    # /deleteslot
     elif cmd == "/deleteslot":
-        slot_id = content[12:].strip()
+        slot_id = parts[1]
         if slot_id in slots:
             slots[slot_id]["running"] = False
             del slots[slot_id]
             save_slots(slots)
             await message.channel.send(f"🗑️ Slot {slot_id} Deleted!")
 
-    elif cmd == "/addslot":
-        new_id = str(max([int(k) for k in slots.keys()] or [0]) + 1)
-        slots[new_id] = {"token": "", "channels": [], "delay": 10, "message": "nigga gigga", "running": False}
-        save_slots(slots)
-        await message.channel.send(f"➕ Slot {new_id} Created!")
-
-# ====================== RUN ======================
+# ====================== START ======================
 if __name__ == "__main__":
     token = os.getenv("DISCORD_TOKEN")
-    if not token:
-        print("❌ Please set DISCORD_TOKEN in Railway Variables")
-    else:
+    if token:
         bot.run(token)
+    else:
+        print("Set DISCORD_TOKEN in Railway")
