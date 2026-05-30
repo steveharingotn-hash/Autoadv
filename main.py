@@ -32,10 +32,9 @@ class AdSlot:
             self.task = asyncio.create_task(self.advertise())
 
         try:
-            await self.client.start(self.token, bot=False)
+            await self.client.start(self.token)   # Removed bot=False
         except Exception as e:
             print(f"❌ LOGIN FAILED: {e}")
-            print("Token blocked or invalid.")
 
     async def advertise(self):
         while True:
@@ -45,8 +44,8 @@ class AdSlot:
                     if channel:
                         await channel.send(self.message)
                         print(f"✅ Sent to {cid}")
-                except Exception as e:
-                    print(f"Send error: {e}")
+                except:
+                    pass
             await asyncio.sleep(self.delay)
 
     def stop(self):
@@ -71,10 +70,10 @@ class ControlPanel(discord.ui.View):
     @discord.ui.button(label="Start", style=discord.ButtonStyle.success, emoji="🚀", row=1)
     async def start(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not slots_data.get("token"):
-            return await interaction.response.send_message("❌ Do Setup first!", ephemeral=True)
+            return await interaction.response.send_message("❌ Setup first!", ephemeral=True)
         
         slot = AdSlot(slots_data["token"], slots_data["channels"], slots_data["delay"], slots_data["message"])
-        await interaction.response.send_message("🚀 Trying to start self-bot...", ephemeral=True)
+        await interaction.response.send_message("🚀 Trying to login with your alt token...", ephemeral=True)
         asyncio.create_task(slot.start())
 
     @discord.ui.button(label="Stop", style=discord.ButtonStyle.danger, emoji="⭕", row=1)
