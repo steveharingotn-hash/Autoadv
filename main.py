@@ -11,7 +11,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 KEYS_FILE = "keys.json"
 keys_data = {}        # {"KEY123": {"owner": user_id, "redeemed": False, "user_id": None}}
-OWNER_ROLE_ID = 123456789012345678   # ← CHANGE THIS TO YOUR SERVER'S OWNER ROLE ID
+OWNER_ROLE_ID = 1506914867179819108   # ← CHANGE THIS TO YOUR SERVER'S OWNER ROLE ID
 
 def load_keys():
     global keys_data
